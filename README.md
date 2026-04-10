@@ -11,7 +11,7 @@ This repository provides:
 Method-specific implementations live in separate repositories:
 - [dcnn-tube-mpc-dbs](../dcnn-tube-mpc-dbs) — DC neural network tube MPC
 - [koopman-mpc-dbs](../koopman-mpc-dbs) — Koopman operator MPC
-- [embedded-condensed-mpc](../embedded-condensed-mpc) — embedded condensed QP solver
+- [embedded-stable-neuron-mpc](../embedded-stable-neuron-mpc) — embedded stable-neuron QP solver
 
 > **Disclaimer**: This is a research prototype and is **not a medical device**. It has not been approved, cleared, or certified by any regulatory authority and must not be used for clinical decision-making or patient treatment. See [DISCLAIMER.md](DISCLAIMER.md).
 
