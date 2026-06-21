@@ -1,37 +1,71 @@
 # closed-loop-dbs-bench
 
-Benchmark hub for closed-loop deep brain stimulation (DBS) control.
+Benchmark and baseline code for closed-loop deep brain stimulation (DBS)
+control experiments.
 
-This repository provides:
-- **Baseline controllers**: bang-bang on/off and PI, ready to run on synthetic data
-- **Simulation harness**: `SimulationRunner` with `ControllerProtocol` for plugging in method-repo controllers
-- **Shared utilities**: ARX predictor, ARI model, cost functions, evaluation metrics, figure style
-- **Synthetic data**: AR-process beta trajectories with PRBS stimulation overlay — no patient data required
+This is the best starting point for understanding the public code release. It
+defines the synthetic plant, the simulation loop, the controller interface, the
+baseline controllers, and the common metrics used by the method repositories.
 
-This is the entry-point repository for the public code release. It contains the
-shared simulation/evaluation harness and the baseline controllers; the
-method-specific controllers live in companion repositories.
+This code is a research prototype. It is not a medical device and must not be
+used for clinical decision-making or patient treatment. See
+[DISCLAIMER.md](DISCLAIMER.md).
 
-| Repository | Role |
+## Repository Set
+
+The project is split by responsibility:
+
+| Repository | Purpose |
 |---|---|
-| [closed-loop-dbs-bench](../closed-loop-dbs-bench) | Shared benchmark, synthetic plant, metrics, plotting utilities, bang-bang/PI/linear baselines |
-| [dcnn-tube-mpc-dbs](../dcnn-tube-mpc-dbs) | DC neural network tube MPC, SCP solver stack, uncertainty/tube-bound utilities |
-| [koopman-mpc-dbs](../koopman-mpc-dbs) | Koopman lifted-linear predictor, dense QP builder, Koopman MPC training/demo code |
-| [embedded-stable-neuron-mpc](../embedded-stable-neuron-mpc) | C++/STM32 implementation of the stable-neuron and Koopman QP solvers |
+| [closed-loop-dbs-bench](https://github.com/joshampomah/closed-loop-dbs-bench) | Shared benchmark, synthetic DBS plant, metrics, plotting utilities, bang-bang/PI/linear baselines |
+| [dcnn-tube-mpc-dbs](https://github.com/joshampomah/dcnn-tube-mpc-dbs) | DC neural network tube MPC method: predictor, SCP controller, uncertainty bounds, synthetic training/demo code |
+| [koopman-mpc-dbs](https://github.com/joshampomah/koopman-mpc-dbs) | Koopman MPC method: lifted-linear predictor, dense QP builder, OLS training/demo code |
+| [embedded-stable-neuron-mpc](https://github.com/joshampomah/embedded-stable-neuron-mpc) | C++/STM32 implementation of the stable-neuron and Koopman QP solvers, plus the final report PDF |
 
-> **Disclaimer**: This is a research prototype and is **not a medical device**. It has not been approved, cleared, or certified by any regulatory authority and must not be used for clinical decision-making or patient treatment. See [DISCLAIMER.md](DISCLAIMER.md).
+Use this repo to compare controllers under one benchmark. Use the method repos
+to inspect, train, or modify the individual controllers.
 
----
+## What Is In This Repo
+
+- `src/dbs_bench/simulation/`: `SimulationRunner`, synthetic/real-data plant
+  wrappers, result containers, logging helpers.
+- `src/dbs_bench/synthetic/`: public-safe synthetic beta and stimulation
+  generators; no patient recordings are included.
+- `src/dbs_bench/controllers/`: baseline controllers and linear MPC support.
+  The main ready-to-run baselines are bang-bang and PI.
+- `src/dbs_bench/models/`: ARI/ARX/state-space utilities used by the benchmark.
+- `src/dbs_bench/evaluation/`: cost and metric helpers.
+- `src/dbs_bench/analysis/`: plotting style helpers for producing comparable
+  figures.
+- `scripts/run_benchmark.py`: baseline benchmark runner.
+- `examples/quick_demo.py`: small programmatic demo.
+- `tests/`: pytest coverage for the public-safe benchmark components.
+
+## What Is Not In This Repo
+
+- No patient recordings.
+- No patient-derived trained model weights.
+- No STM32 firmware or embedded C++ solver code.
+- No DCNN or Koopman implementation internals beyond the common controller
+  interface.
 
 ## Installation
+
+Requires Python 3.10-3.12.
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-Requires Python 3.10–3.12.
+## Quick Start
 
-## Quick start
+Run the built-in baseline benchmark:
+
+```bash
+python scripts/run_benchmark.py --duration 60 --plot
+```
+
+Or use the simulation runner directly:
 
 ```python
 from dbs_bench.controllers.bang_bang import BangBangController
@@ -39,42 +73,43 @@ from dbs_bench.simulation.simulate import SimulationRunner
 from dbs_bench.synthetic.data_generator import generate_demo_patient
 
 patient = generate_demo_patient(n_state_y=15)
-runner  = SimulationRunner(patient, dt=0.02, beta_0=2.3)
-result  = runner.run(BangBangController(beta_0=2.3), duration=10.0)
+runner = SimulationRunner(patient, dt=0.02, beta_0=2.3)
+result = runner.run(BangBangController(beta_0=2.3), duration=10.0)
 print(result.metrics)
 ```
 
-Or run the benchmark script:
-
-```bash
-python scripts/run_benchmark.py --duration 60 --plot
-```
-
-## Plugging in a custom controller
-
-Implement a scalar controller or a history-aware controller. Method repos usually
-use the history-aware form:
-
-```python
-from dbs_bench.simulation.simulate import ControllerProtocol
-
-class MyController:
-    def compute_control(self, y_history, u_history, u_prev):
-        # y_history: (n,) float32, most-recent first
-        # u_history: (m,) float32, most-recent first
-        u = ...
-        info = {}   # optional solver diagnostics
-        return float(u), info
-
-    def reset(self):
-        ...
-```
-
-Pass it to `runner.run(ctrl, controller_type="custom")`.
+## Loading Method Controllers
 
 `scripts/run_benchmark.py` intentionally runs only the built-in baselines. To
-benchmark a method-repo controller, install the relevant sibling repo and pass
-the controller object to `SimulationRunner`:
+benchmark a controller from a method repo, install that sibling repo and pass a
+controller object into `SimulationRunner`.
+
+The runner supports two controller styles:
+
+```python
+class ScalarController:
+    def compute_control(self, y):
+        return 0.0
+
+    def reset(self):
+        pass
+```
+
+and the history-aware style used by MPC controllers:
+
+```python
+class HistoryController:
+    def compute_control(self, y_history, u_history, u_prev):
+        # y_history and u_history are newest-first float arrays.
+        u = 0.0
+        info = {"status": "ok"}
+        return u, info
+
+    def reset(self):
+        pass
+```
+
+Example integration:
 
 ```python
 from dbs_bench.simulation.simulate import SimulationRunner
@@ -83,7 +118,7 @@ from dbs_bench.synthetic.data_generator import generate_demo_patient
 patient = generate_demo_patient(n_state_y=15)
 runner = SimulationRunner(patient, dt=0.02, beta_0=2.3)
 
-# Example: after constructing a DCNN SCPController or KoopmanControllerAdapter:
+# ctrl can be a DCNN SCPController or a KoopmanControllerAdapter.
 result = runner.run(ctrl, duration=60.0, controller_type="custom")
 print(result.metrics)
 ```
@@ -94,22 +129,27 @@ print(result.metrics)
 pytest tests/ -v
 ```
 
+The GitHub Actions workflow runs the tests on Python 3.10, 3.11, and 3.12.
+
 ## Background
 
-The simulation model follows the CDC24/CDC25 framework for closed-loop DBS:
+The synthetic model follows the closed-loop DBS setup used in the project:
 
-```
-y(k) = y_β(k) · exp(−η(u(k)))
+```text
+y(k) = y_beta(k) * exp(-eta(u(k)))
 ```
 
-In log-domain: `log y(k) = log y_β(k) − η(k)`, where `y_β` follows an AR(3)
-process and `η` is the response of a 2nd-order ZOH state-space system to
-stimulation `u`.  Parameters are set to the published nominal values
-(`gain=62.11`, `τ₁=0.05 s`, `τ₂=0.25 s`, `dt=0.02 s`).
+In log space this becomes:
+
+```text
+log y(k) = log y_beta(k) - eta(k)
+```
+
+`y_beta` is generated by an AR process and `eta` is produced by a second-order
+zero-order-hold stimulation response model. The nominal public-safe parameters
+are set in `src/dbs_bench/config/device_params.json`.
 
 ## Citation
-
-If you use this software, please cite:
 
 ```bibtex
 @software{ampomah2025dbsbench,
@@ -123,4 +163,4 @@ See [CITATION.cff](CITATION.cff) for the full citation metadata.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
