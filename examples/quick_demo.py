@@ -20,6 +20,7 @@ DT = 0.02  # 50 Hz
 
 
 def main() -> None:
+    """Run the short built-in controller demo."""
     patient = generate_demo_patient(n_state_y=15, seed=42)
     runner = SimulationRunner(patient, dt=DT, beta_0=BETA_0)
 

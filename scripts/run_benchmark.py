@@ -31,6 +31,7 @@ BETA_0 = 2.3  # Log-space threshold
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for the benchmark script."""
     p = argparse.ArgumentParser(description="Run closed-loop DBS benchmark")
     p.add_argument("--controller", choices=list(CONTROLLERS) + ["all"], default="all")
     p.add_argument("--duration", type=float, default=60.0, help="Simulation duration (s)")
@@ -50,6 +51,7 @@ def run_one(
     beta_0: float,
     out_dir: Path,
 ) -> dict:
+    """Run one built-in controller and persist its arrays and metrics."""
     ctrl = CONTROLLERS[name](beta_0)
     runner = SimulationRunner(patient, dt=dt, beta_0=beta_0)
 
@@ -84,6 +86,7 @@ def run_one(
 
 
 def plot_results(results: list, out_dir: Path) -> None:
+    """Save a comparison plot for the completed controller runs."""
     try:
         import matplotlib.pyplot as plt
     except ImportError:
@@ -120,6 +123,7 @@ def plot_results(results: list, out_dir: Path) -> None:
 
 
 def main() -> None:
+    """Run the requested benchmark controllers on one synthetic patient."""
     args = parse_args()
 
     out_dir = Path(args.out) if args.out else Path("results") / datetime.now().strftime("%Y%m%d_%H%M%S")
