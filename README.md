@@ -52,7 +52,8 @@ python scripts/run_benchmark.py --duration 60 --plot
 
 ## Plugging in a custom controller
 
-Implement the `ControllerProtocol`:
+Implement a scalar controller or a history-aware controller. Method repos usually
+use the history-aware form:
 
 ```python
 from dbs_bench.simulation.simulate import ControllerProtocol
@@ -70,6 +71,22 @@ class MyController:
 ```
 
 Pass it to `runner.run(ctrl, controller_type="custom")`.
+
+`scripts/run_benchmark.py` intentionally runs only the built-in baselines. To
+benchmark a method-repo controller, install the relevant sibling repo and pass
+the controller object to `SimulationRunner`:
+
+```python
+from dbs_bench.simulation.simulate import SimulationRunner
+from dbs_bench.synthetic.data_generator import generate_demo_patient
+
+patient = generate_demo_patient(n_state_y=15)
+runner = SimulationRunner(patient, dt=0.02, beta_0=2.3)
+
+# Example: after constructing a DCNN SCPController or KoopmanControllerAdapter:
+result = runner.run(ctrl, duration=60.0, controller_type="custom")
+print(result.metrics)
+```
 
 ## Tests
 

@@ -14,6 +14,7 @@ Example:
 from __future__ import annotations
 
 import math
+import inspect
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,8 +47,68 @@ class ControllerProtocol(Protocol):
     Any object with compute_control and reset satisfies this protocol.
     """
 
-    def compute_control(self, y: float, **kwargs) -> float: ...
+    def compute_control(self, *args, **kwargs): ...
     def reset(self) -> None: ...
+
+
+def _controller_accepts_history(controller: object) -> bool:
+    """Return true if compute_control expects y/u histories positionally."""
+    method = getattr(controller, "compute_control", None)
+    if method is None:
+        return False
+    try:
+        sig = inspect.signature(method)
+    except (TypeError, ValueError):
+        return False
+
+    required_positional = [
+        p for p in sig.parameters.values()
+        if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+        and p.default is p.empty
+    ]
+    return len(required_positional) >= 3
+
+
+def _call_controller(
+    controller: Union[ControllerProtocol, Callable],
+    y_obs: float,
+    y_history: np.ndarray,
+    u_history: np.ndarray,
+    u_prev: float,
+):
+    """Call scalar or history-aware controllers with a common interface."""
+    if hasattr(controller, "compute_control"):
+        method = controller.compute_control
+        if _controller_accepts_history(controller):
+            return method(y_history.copy(), u_history.copy(), u_prev)
+
+        try:
+            return method(
+                y_obs,
+                y_history=y_history.copy(),
+                u_history=u_history.copy(),
+                u_prev=u_prev,
+            )
+        except TypeError:
+            return method(y_obs)
+
+    if callable(controller):
+        return controller(y_obs)
+
+    raise ValueError("Controller must be callable or have compute_control method")
+
+
+def _normalise_control_output(control_output):
+    """Accept either u or (u, info) controller outputs."""
+    if isinstance(control_output, tuple):
+        if len(control_output) == 0:
+            raise ValueError("Controller returned an empty tuple")
+        u_k = control_output[0]
+        info = control_output[1] if len(control_output) > 1 else None
+    else:
+        u_k = control_output
+        info = None
+    return float(u_k), info
 
 
 # ---------------------------------------------------------------------------
@@ -496,6 +557,7 @@ class SimulationRunner:
         y = np.zeros(n_steps, dtype=np.float32)
         u = np.zeros(n_steps, dtype=np.float32)
         eta_arr = np.zeros(n_steps, dtype=np.float32) if self.use_real_data else None
+        solver_info_steps: List[object] = []
 
         y_history = (np.asarray(initial_y_history, dtype=np.float32).copy()
                      if initial_y_history is not None
@@ -532,13 +594,12 @@ class SimulationRunner:
                 time_arr[k] = k * self.dt
                 y[k] = y_obs
 
-            # Dispatch to controller
-            if hasattr(controller, "compute_control"):
-                u_k = controller.compute_control(y_obs)
-            elif callable(controller):
-                u_k = controller(y_obs)
-            else:
-                raise ValueError("Controller must be callable or have compute_control method")
+            control_output = _call_controller(
+                controller, y_obs, y_history, u_history, u_prev
+            )
+            u_k, info = _normalise_control_output(control_output)
+            if info is not None and not is_warmup:
+                solver_info_steps.append(info)
 
             if not is_warmup:
                 u[k] = u_k
@@ -574,7 +635,7 @@ class SimulationRunner:
             y_ref=self.beta_0,
             metrics=metrics,
             controller_type=controller_type,
-            solver_info=None,
+            solver_info=({"steps": solver_info_steps} if solver_info_steps else None),
             eta=eta_arr,
             final_y_history=y_history.copy(),
             final_u_history=u_history.copy(),

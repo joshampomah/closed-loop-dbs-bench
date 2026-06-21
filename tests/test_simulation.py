@@ -63,6 +63,32 @@ def test_simulation_runner_pi():
     assert len(result.y) == 100
 
 
+def test_simulation_runner_history_aware_controller():
+    """SimulationRunner passes histories to method-style controllers."""
+
+    class HistoryController:
+        def __init__(self):
+            self.calls = 0
+
+        def reset(self):
+            self.calls = 0
+
+        def compute_control(self, y_history, u_history, u_prev):
+            self.calls += 1
+            assert y_history.shape == (15,)
+            assert u_history.shape == (15,)
+            return min(u_prev + 0.001, 0.003), {"call": self.calls}
+
+    patient = generate_demo_patient(n_state_y=15)
+    patient.u_history = np.zeros(15, dtype=np.float32)
+    runner = SimulationRunner(patient, dt=0.02, beta_0=2.3)
+    ctrl = HistoryController()
+    result = runner.run(ctrl, duration=0.1, controller_type="custom", show_progress=False)
+    assert len(result.y) == 5
+    assert result.solver_info is not None
+    assert len(result.solver_info["steps"]) == 5
+
+
 def test_patient_data_create_default():
     """PatientData.create_default works."""
     pd = PatientData.create_default(n_state_y=15, initial_beta=2.5)
