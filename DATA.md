@@ -4,9 +4,7 @@ The public repositories do not include patient recordings. Keep `.mat`, `.csv`,
 `.npy`, `.npz`, model checkpoints, and result exports outside the public repos,
 for example under a sibling `private_data/` directory.
 
-There were two relevant data paths in the 4YP code.
-
-## 1. Raw `.mat` Recordings For DCNN/Koopman Training
+## Raw `.mat` Recordings For DCNN/Koopman Training
 
 The larger DCNN/Koopman training data came from the Cambium/MRC BNDU dataset
 [STN local field potential recordings from awake patients with Parkinson's, ON
@@ -97,49 +95,20 @@ python -m koopman_mpc.training.train_koopman_ols \
 4YP MATLAB processing; the training scripts convert it to log beta internally.
 Use `--input-space log` only if your CSV already stores log beta.
 
-## 2. Original Stimulation CSV Pair
-
-The original Mark/JS data was already reduced to two CSV files:
-
-```text
-private_data/nndbs/original_js/
-├── beta_causal_RMS.csv
-└── stimulation.csv
-```
-
-In the 4YP copy, beta was sampled at 50 Hz and stimulation was sampled at the
-original higher rate. The public loaders handle obvious integer-rate mismatches
-by downsampling the longer signal and then trimming both arrays to the same
-length. This pair is useful for replay, disturbance-model identification, or
-training on already-applied stimulation.
-
-Point `--data-dir` directly at the folder:
-
-```bash
-python -m dcnn_tube_mpc.training.train_predictor \
-  --data-dir ../private_data/nndbs/original_js \
-  --input-space linear \
-  --horizon 5
-```
-
 ## Benchmark Replay
 
 The benchmark runner expects log-space beta when `real_beta_data` is supplied
-to the default log-space simulator. Convert linear beta RMS before replay:
+to the default log-space simulator. To replay one processed patient folder,
+convert its linear beta RMS before constructing the runner:
 
 ```python
 import numpy as np
 
 from dbs_bench.simulation.simulate import PatientData, SimulationRunner
 
-data_dir = "../private_data/nndbs/original_js"
+data_dir = "../private_data/processed/aperiodic/patient_001"
 beta_linear = np.loadtxt(f"{data_dir}/beta_causal_RMS.csv", delimiter=",")
 stim = np.loadtxt(f"{data_dir}/stimulation.csv", delimiter=",")
-
-if len(stim) > len(beta_linear):
-    ratio = round(len(stim) / len(beta_linear))
-    if ratio > 1:
-        stim = stim[::ratio]
 
 n = min(len(beta_linear), len(stim))
 beta_log = np.log(np.maximum(beta_linear[:n], 1e-10)).astype(np.float32)
