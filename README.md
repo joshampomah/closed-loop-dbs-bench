@@ -8,10 +8,16 @@ This repository provides:
 - **Shared utilities**: ARX predictor, ARI model, cost functions, evaluation metrics, figure style
 - **Synthetic data**: AR-process beta trajectories with PRBS stimulation overlay — no patient data required
 
-Method-specific implementations live in separate repositories:
-- [dcnn-tube-mpc-dbs](../dcnn-tube-mpc-dbs) — DC neural network tube MPC
-- [koopman-mpc-dbs](../koopman-mpc-dbs) — Koopman operator MPC
-- [embedded-stable-neuron-mpc](../embedded-stable-neuron-mpc) — embedded stable-neuron QP solver
+This is the entry-point repository for the public code release. It contains the
+shared simulation/evaluation harness and the baseline controllers; the
+method-specific controllers live in companion repositories.
+
+| Repository | Role |
+|---|---|
+| [closed-loop-dbs-bench](../closed-loop-dbs-bench) | Shared benchmark, synthetic plant, metrics, plotting utilities, bang-bang/PI/linear baselines |
+| [dcnn-tube-mpc-dbs](../dcnn-tube-mpc-dbs) | DC neural network tube MPC, SCP solver stack, uncertainty/tube-bound utilities |
+| [koopman-mpc-dbs](../koopman-mpc-dbs) | Koopman lifted-linear predictor, dense QP builder, Koopman MPC training/demo code |
+| [embedded-stable-neuron-mpc](../embedded-stable-neuron-mpc) | C++/STM32 implementation of the stable-neuron and Koopman QP solvers |
 
 > **Disclaimer**: This is a research prototype and is **not a medical device**. It has not been approved, cleared, or certified by any regulatory authority and must not be used for clinical decision-making or patient treatment. See [DISCLAIMER.md](DISCLAIMER.md).
 
