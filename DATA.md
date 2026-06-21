@@ -1,8 +1,8 @@
 # Using Your Own Data
 
 The public repositories do not include patient recordings. Keep `.mat`, `.csv`,
-`.npy`, `.npz`, model checkpoints, and result exports outside the public repos,
-for example under a sibling `private_data/` directory.
+model checkpoints, and result exports outside the public repos, for example
+under a sibling `private_data/` directory.
 
 ## Raw `.mat` Recordings For DCNN/Koopman Training
 
@@ -134,19 +134,3 @@ print(result.metrics)
 Runtime histories are newest-first because the controller updates index `0`
 with the latest sample. Training windows are stored oldest-to-newest because
 they are fixed supervised regressors.
-
-## Optional Cached Window Format
-
-The method repos also accept cached supervised `.npz` files, but this is only a
-convenience format. It is not required for raw `.mat` recordings or processed
-patient folders.
-
-Each `.npz` file should contain:
-
-- `x`: `(n_windows, n_state_y + n_state_u)`, columns
-  `[y_history, u_history]`, each oldest-to-newest;
-- `u`: `(n_windows, horizon)`, future stimulation sequence;
-- `y`: `(n_windows, horizon)`, future log-beta sequence.
-
-Use this format only when a private preprocessing script has already created
-the exact supervised windows you want to train on.
