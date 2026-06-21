@@ -123,6 +123,20 @@ result = runner.run(ctrl, duration=60.0, controller_type="custom")
 print(result.metrics)
 ```
 
+## Using Your Own Data
+
+The public release contains only synthetic/demo-safe data. For private
+recordings, see [DATA.md](DATA.md). In short:
+
+- raw 4YP-style `.mat` recordings should be processed into patient folders
+  containing `beta_causal_RMS.csv` and `stimulation.csv`;
+- the DCNN and Koopman training scripts can read those processed folders
+  directly via `--data-dir`;
+- benchmark replay uses a log-space beta trace passed to
+  `SimulationRunner(..., real_beta_data=beta)`;
+- runtime controller histories are newest-first, while training windows store
+  each history oldest-to-newest.
+
 ## Tests
 
 ```bash
